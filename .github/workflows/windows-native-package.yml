@@ -164,6 +164,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Stable installer
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: frostguard-stable-windows-installer
@@ -232,7 +233,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Nightly installer
-        if: steps.channels.outputs.nightly == 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.channels.outputs.nightly == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: frostguard-nightly-windows-installer

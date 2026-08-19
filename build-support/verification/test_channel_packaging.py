@@ -59,10 +59,13 @@ class ChannelPackagingTest(unittest.TestCase):
             "        with:\n"
             "          name: frostguard-stable-windows-app-image",
             installers)
-        self.assertIn(
+        self.assertEqual(2, installers.count(
+            "if: github.event_name == 'workflow_dispatch'\n"
+            "        uses: actions/upload-artifact@v4"))
+        self.assertEqual(2, installers.count(
             "if: github.event_name == 'workflow_dispatch' && "
-            "steps.channels.outputs.nightly == 'true'",
-            installers)
+            "steps.channels.outputs.nightly == 'true'\n"
+            "        uses: actions/upload-artifact@v4"))
 
     def test_pr_test_build_keeps_bundle_verification_and_publication(self):
         workflow = (REPO_ROOT / ".github/workflows/pr-test-build.yml").read_text(
