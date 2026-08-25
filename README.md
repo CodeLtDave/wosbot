@@ -61,6 +61,9 @@ download the JSON manifest.
 > [`Shederator/wosbot` releases](https://github.com/Shederator/wosbot/releases).
 > Do not use installers from mirrors, reposts, or third-party download sites.
 
+See the project's [Code signing policy](CODE_SIGNING_POLICY.md) for the trusted
+build, review, and release-signing requirements.
+
 Stable is the tested, versioned release intended for normal use. Its installer
 already contains Java, ADB, OCR data, and the required runtime libraries.
 
@@ -176,6 +179,9 @@ Contributions are accepted under the same license and require a
 [Developer Certificate of Origin](DCO) sign-off. See
 [Contributing](CONTRIBUTING.md#developer-certificate-of-origin) for details.
 
+Optional Mixpanel telemetry is disabled until the user explicitly opts in. See
+the [Privacy Policy](PRIVACY.md) for the exact data and third-party services.
+
 ## Documentation
 
 | I want to… | Read… |
@@ -187,6 +193,7 @@ Contributions are accepted under the same license and require a
 | Change automation, OCR, or screen interaction | [Design guidelines](docs/design-guidelines.md) |
 | Build native Windows packages or configure autostart | [Windows setup](docs/windows.md) |
 | Understand release channels and publication | [Release process](docs/releases.md) |
+| Review release-signing controls | [Code signing policy](CODE_SIGNING_POLICY.md) |
 
 ## Community & contribution
 

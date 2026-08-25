@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,8 +23,8 @@ import dev.frostguard.api.configs.ConfigurationKeyEnum;
 /**
  * Anonymous usage analytics service using Mixpanel.
  * 
- * <p>All tracking is gated by the {@code ANALYTICS_ENABLED_BOOL} global config.
- * Users can opt out at any time via the Config tab toggle.
+ * <p>All tracking requires explicit consent recorded by the Config tab. New
+ * and legacy workspaces remain disabled until the user opts in.
  * 
  * <p><b>Privacy guarantees:</b>
  * <ul>
@@ -328,16 +329,23 @@ public class AnalyticsService {
 	public boolean isEnabled() {
 		try {
 			HashMap<String, String> globalConfig = ConfigService.obtain().loadGlobalSettings();
-			if (globalConfig == null) {
-				return true; // Default to enabled
-			}
-			String value = globalConfig.getOrDefault(
-					ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL.name(),
-					ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL.getDefaultValue());
-			return Boolean.parseBoolean(value);
+			return hasExplicitAnalyticsConsent(globalConfig);
 		} catch (Exception e) {
-			return true; // Default to enabled if config read fails
+			return false;
 		}
+	}
+
+	static boolean hasExplicitAnalyticsConsent(Map<String, String> globalConfig) {
+		if (globalConfig == null) {
+			return false;
+		}
+		String enabled = globalConfig.getOrDefault(
+				ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL.name(),
+				ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL.getDefaultValue());
+		String consentVersion = globalConfig.getOrDefault(
+				ConfigurationKeyEnum.ANALYTICS_CONSENT_VERSION_INT.name(),
+				ConfigurationKeyEnum.ANALYTICS_CONSENT_VERSION_INT.getDefaultValue());
+		return Boolean.parseBoolean(enabled) && "1".equals(consentVersion);
 	}
 
 	/**

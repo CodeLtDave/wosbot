@@ -26,6 +26,8 @@ If you are unsure, install **Stable**.
    release, then run it. A Windows **Unknown publisher** or SmartScreen warning
    is currently expected because the project does not yet have a verified
    Windows publisher.
+   See the [Code signing policy](../CODE_SIGNING_POLICY.md) for the project's
+   trusted build and signing controls.
 4. Choose whether to create a desktop shortcut and complete the per-user
    installation. The final page starts **Frostguard** by default.
 5. Continue at [Configure the emulator and game](#configure-the-emulator-and-game).
@@ -44,6 +46,8 @@ It may contain unfinished or unstable behavior.
 3. Confirm that the file comes from the official `Shederator/wosbot` GitHub
    release, then run it. The same **Unknown publisher** or SmartScreen warning
    described for Stable is currently expected.
+   See the [Code signing policy](../CODE_SIGNING_POLICY.md) for signing status
+   and release controls.
 4. Complete the installer and start **Frostguard Nightly**.
 5. Continue at [Configure the emulator and game](#configure-the-emulator-and-game).
 

@@ -421,14 +421,22 @@ public class EmuConfigLayoutController {
 	 * ──────────────────────────────────────────────── */
 
 	private void configureAnalyticsToggles(Map<String, String> cfg) {
-		boolean analyticsOn = Boolean.parseBoolean(
+		boolean consentRecorded = "1".equals(cfg.getOrDefault(
+				ConfigurationKeyEnum.ANALYTICS_CONSENT_VERSION_INT.name(),
+				ConfigurationKeyEnum.ANALYTICS_CONSENT_VERSION_INT.getDefaultValue()));
+		boolean analyticsOn = consentRecorded && Boolean.parseBoolean(
 				cfg.getOrDefault(ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL.name(),
 						ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL.getDefaultValue()));
 		checkboxAnalyticsEnabled.setSelected(analyticsOn);
 
-		checkboxAnalyticsEnabled.selectedProperty().addListener((obs, prev, now) ->
+		checkboxAnalyticsEnabled.selectedProperty().addListener((obs, prev, now) -> {
 			ConfigService.obtain().writeGlobalSetting(
-					ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL, String.valueOf(now)));
+					ConfigurationKeyEnum.ANALYTICS_ENABLED_BOOL, String.valueOf(now));
+			if (now) {
+				ConfigService.obtain().writeGlobalSetting(
+						ConfigurationKeyEnum.ANALYTICS_CONSENT_VERSION_INT, "1");
+			}
+		});
 
 		boolean hideLogs = Boolean.parseBoolean(
 				cfg.getOrDefault(ConfigurationKeyEnum.HIDE_ANALYTICS_LOGS_BOOL.name(),
