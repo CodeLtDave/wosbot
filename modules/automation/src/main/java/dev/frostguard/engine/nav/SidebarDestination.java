@@ -15,16 +15,27 @@ public enum SidebarDestination {
             SidebarRowAction.CLAIM, SidebarRowAction.GO),
     LIGHTHOUSE_INTEL(SidebarSection.DAILY, TemplatesEnum.SIDEBAR_DAILY_LIGHTHOUSE_INTEL,
             SidebarRowAction.GO),
+    ONLINE_REWARDS(SidebarSection.DAILY, TemplatesEnum.SIDEBAR_DAILY_ONLINE_REWARDS,
+            SidebarRowAction.CLAIM, SidebarRowAction.GO),
+    WARM_WELCOME(SidebarSection.DAILY, TemplatesEnum.SIDEBAR_DAILY_WARM_WELCOME,
+            18, SidebarRowAction.GO, SidebarRowAction.CLAIM),
     TUNDRA_TREK_SUPPLIES(SidebarSection.DAILY, TemplatesEnum.TUNDRA_TREK_SUPPLIES,
             SidebarRowAction.CLAIM, SidebarRowAction.GO);
 
     private final SidebarSection section;
     private final TemplatesEnum rowIcon;
+    private final int actionYOffset;
     private final SidebarRowAction[] actions;
 
     SidebarDestination(SidebarSection section, TemplatesEnum rowIcon, SidebarRowAction... actions) {
+        this(section, rowIcon, 0, actions);
+    }
+
+    SidebarDestination(SidebarSection section, TemplatesEnum rowIcon, int actionYOffset,
+                       SidebarRowAction... actions) {
         this.section = section;
         this.rowIcon = rowIcon;
+        this.actionYOffset = actionYOffset;
         this.actions = actions.clone();
     }
 
@@ -34,6 +45,10 @@ public enum SidebarDestination {
 
     public TemplatesEnum rowIcon() {
         return rowIcon;
+    }
+
+    public int actionYOffset() {
+        return actionYOffset;
     }
 
     public SidebarRowAction[] actions() {

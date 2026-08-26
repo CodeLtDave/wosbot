@@ -60,6 +60,18 @@ class LiveRegressionPatternEvidenceTest {
     }
 
     @Test
+    void detectsStorehouseChestAfterOnlineRewardsSelectionIsClosed() throws IOException {
+        assertMatch("/live-regressions-20260826/storehouse-online-reward-ready.png",
+                TemplatesEnum.STOREHOUSE_CHEST_CURRENT);
+    }
+
+    @Test
+    void detectsWarmWelcomeClaimControl() throws IOException {
+        assertMatch("/live-regressions-20260826/storehouse-warm-welcome.png",
+                TemplatesEnum.STOREHOUSE_WARM_WELCOME_CLAIM);
+    }
+
+    @Test
     void detectsCurrentAllianceRecommendationMarker() throws IOException {
         assertMatch("/live-regressions-20260818/alliance-tech.png",
                 TemplatesEnum.ALLIANCE_TECH_THUMB_UP_CURRENT);

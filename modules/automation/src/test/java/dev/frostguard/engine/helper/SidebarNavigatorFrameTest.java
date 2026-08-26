@@ -55,6 +55,16 @@ class SidebarNavigatorFrameTest {
     }
 
     @Test
+    void detectsStorehouseRewardRowsAndTheirActions() throws IOException {
+        byte[] frame = resource("/navigation/sidebar-dynamic-20260821/daily-hide-off.png");
+
+        assertDestination(frame, TemplatesEnum.SIDEBAR_DAILY_WARM_WELCOME, 46, 749);
+        assertDestination(frame, TemplatesEnum.SIDEBAR_DAILY_ONLINE_REWARDS, 46, 822);
+        assertRowAction(frame, SidebarDestination.WARM_WELCOME, SidebarRowAction.GO);
+        assertRowAction(frame, SidebarDestination.ONLINE_REWARDS, SidebarRowAction.CLAIM);
+    }
+
+    @Test
     void waitsTwoSecondsAfterEverySidebarScanSwipe() {
         assertEquals(2_000, SidebarNavigator.SCROLL_SETTLE_MS);
     }
@@ -127,7 +137,7 @@ class SidebarNavigatorFrameTest {
     private void assertRowAction(byte[] frame, SidebarDestination destination, SidebarRowAction action) {
         ImageSearchResultData icon = locate(frame, destination.rowIcon(), CommonGameAreas.SIDEBAR_ROW_ICON_COLUMN);
         assertTrue(icon.isFound(), () -> "Missing row icon for " + destination);
-        AreaData rowActionArea = SidebarNavigator.rowActionAreaFor(icon);
+        AreaData rowActionArea = SidebarNavigator.rowActionAreaFor(destination, icon);
         boolean found = false;
         for (TemplatesEnum template : action.templates()) {
             if (locate(frame, template, rowActionArea).isFound()) {

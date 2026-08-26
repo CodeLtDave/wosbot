@@ -45,6 +45,15 @@ unavailable rather than scanning the unrelated City queues. When present, the ex
 icon identifies its row; the routine then accepts either direct claim-panel entry or Dawn Academy
 entry followed by the supply counter.
 
+Storehouse rewards use the two persistent `My Rewards` identities. `Online Rewards` accepts its
+row-relative Claim or Go control and normalizes the city camera at the Storehouse; `A Warm Welcome`
+opens the stamina Claim popup directly. The Warm Welcome icon sits above its action because the row
+also contains a progress bar, so that destination carries the measured 18-pixel vertical association
+and the taller action variant captured from that row. Online Rewards likewise uses the taller Claim
+variant shown in the My Rewards group.
+Either row may be absent while completed rows are hidden,
+so absence is an unavailable state rather than permission to fall back to blind city navigation.
+
 Saved evidence lives under
 `modules/automation/src/test/resources/navigation/sidebar-update-20260817` and
 `modules/automation/src/test/resources/navigation/sidebar-dynamic-20260821`. It covers City,

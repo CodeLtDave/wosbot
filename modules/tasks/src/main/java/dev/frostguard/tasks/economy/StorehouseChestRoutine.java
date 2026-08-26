@@ -21,7 +21,6 @@ import dev.frostguard.engine.schedule.DelayedTask;
 import dev.frostguard.engine.schedule.LaunchPoint;
 import dev.frostguard.engine.nav.SearchConfigConstants;
 import dev.frostguard.engine.nav.SidebarDestination;
-import dev.frostguard.engine.helper.TemplateSearchHelper.SearchConfig;
 
 /**
  * Task responsible for claiming rewards from the Storehouse.
@@ -29,7 +28,7 @@ import dev.frostguard.engine.helper.TemplateSearchHelper.SearchConfig;
  * <p>
  * This task:
  * <ul>
- * <li>Navigates to the Storehouse via Research Center</li>
+ * <li>Navigates to Storehouse rewards through their Daily sidebar rows</li>
  * <li>Claims daily chest rewards (available every few hours)</li>
  * <li>Claims stamina rewards (available once per day at game reset)</li>
  * <li>Reads timers via OCR to determine next availability</li>
@@ -45,12 +44,10 @@ import dev.frostguard.engine.helper.TemplateSearchHelper.SearchConfig;
  */
 public class StorehouseChestRoutine extends DelayedTask {
 
-    // ========== Navigation Coordinates ==========
-    private static final AreaData STOREHOUSE_VISIBLE_BUILDING_AREA = new AreaData(
-            new PointData(105, 530), new PointData(125, 550));
-    private static final AreaData STOREHOUSE_TITLE_AREA = new AreaData(
-            new PointData(245, 515), new PointData(505, 575));
-    private static final int STOREHOUSE_SELECTION_SETTLE_MILLIS = 2_200;
+    // ========== Online Rewards Navigation ==========
+    private static final AreaData STOREHOUSE_BODY_AFTER_ONLINE_REWARDS = new AreaData(
+            new PointData(270, 660), new PointData(500, 790));
+    private static final int STOREHOUSE_SELECTION_SETTLE_MILLIS = 1_000;
     private static final int STOREHOUSE_DESELECTION_SETTLE_MILLIS = 800;
     private static final PointData STOREHOUSE_SCROLL_START = new PointData(1, 636);
     private static final PointData STOREHOUSE_SCROLL_END = new PointData(2, 636);
@@ -60,10 +57,8 @@ public class StorehouseChestRoutine extends DelayedTask {
     private static final PointData CHEST_TIMER_BOTTOM_RIGHT = new PointData(450, 1145);
 
     // ========== Stamina Reward Coordinates ==========
-    private static final PointData STAMINA_AMOUNT_TOP_LEFT = new PointData(436, 632);
-    private static final PointData STAMINA_AMOUNT_BOTTOM_RIGHT = new PointData(487, 657);
-    private static final PointData STAMINA_CLAIM_BUTTON_TOP_LEFT = new PointData(250, 930);
-    private static final PointData STAMINA_CLAIM_BUTTON_BOTTOM_RIGHT = new PointData(450, 950);
+    private static final PointData STAMINA_AMOUNT_TOP_LEFT = new PointData(330, 600);
+    private static final PointData STAMINA_AMOUNT_BOTTOM_RIGHT = new PointData(440, 680);
 
     // ========== Fallback Timer OCR ==========
     private static final PointData FALLBACK_TIMER_TOP_LEFT = new PointData(285, 642);
@@ -131,13 +126,13 @@ public class StorehouseChestRoutine extends DelayedTask {
         loadConfiguration();
         resetExecutionState();
 
-        if (!openStorehouse()) {
-            logWarning("Failed to open Storehouse.");
-            reschedule(LocalDateTime.now().plusMinutes(FALLBACK_RESCHEDULE_MINUTES));
-            return;
+        ImageSearchResultData chest = openOnlineRewards();
+        if (chest.isFound()) {
+            processChestReward(chest);
+        } else {
+            logWarning("Online Rewards did not expose the Storehouse chest.");
+            nextChestTime = LocalDateTime.now().plusMinutes(FALLBACK_RESCHEDULE_MINUTES);
         }
-
-        processChestReward();
 
         if (isTimeToClaimStamina()) {
             processStaminaReward();
@@ -148,51 +143,37 @@ public class StorehouseChestRoutine extends DelayedTask {
     }
 
     /**
-     * Opens the Storehouse from the stable Research Center sidebar anchor.
+     * Opens Online Rewards and removes the building-selection overlay so the chest bubble is visible.
      */
-    private boolean openStorehouse() {
-        logDebug("Navigating to Storehouse");
+    private ImageSearchResultData openOnlineRewards() {
+        logDebug("Opening Storehouse through the Online Rewards sidebar row");
 
-        if (!navigationHelper.navigateToSidebarDestination(SidebarDestination.RESEARCH_CENTER)) {
-            logError("Research Center sidebar destination not reached.");
-            return false;
+        if (!navigationHelper.navigateToSidebarDestination(SidebarDestination.ONLINE_REWARDS)) {
+            logWarning("Online Rewards sidebar destination was unavailable.");
+            return ImageSearchResultData.miss();
         }
 
-        // The Research Center centers the city with a visible part of the Storehouse at the left.
-        // Selecting that stable visible area avoids a momentum-sensitive map pan.
-        tapInside(STOREHOUSE_VISIBLE_BUILDING_AREA.topLeft(), STOREHOUSE_VISIBLE_BUILDING_AREA.bottomRight());
+        // Online Rewards centers the camera at the Storehouse but initially points a tutorial hand
+        // at its chest bubble. Selecting the building body and closing the selection removes the hand
+        // without depending on the hand artwork or the previous city camera position.
+        tapInside(STOREHOUSE_BODY_AFTER_ONLINE_REWARDS);
         sleepTask(STOREHOUSE_SELECTION_SETTLE_MILLIS);
+        pressBack();
+        sleepTask(STOREHOUSE_DESELECTION_SETTLE_MILLIS);
 
-        ImageSearchResultData selected = templateSearchHelper.locatePattern(
-                TemplatesEnum.STOREHOUSE_SELECTED_CURRENT,
-                SearchConfig.builder()
-                        .withArea(STOREHOUSE_TITLE_AREA)
-                        .withThreshold(85)
-                        .withMaxAttempts(3)
-                        .withDelay(300L)
-                        .build());
-        if (selected.isFound()) {
-            logInfo("Storehouse selected and verified by its title anchor.");
-            // The reward bubbles are only actionable after Android Back closes the
-            // building's Details/Upgrade selection controls.
-            pressBack();
-            sleepTask(STOREHOUSE_DESELECTION_SETTLE_MILLIS);
-            logInfo("Storehouse selection controls closed; reward bubbles are now accessible.");
-            return true;
-        }
-
-        logWarning("Storehouse title anchor was not detected after the direct selection.");
-        return false;
+        ImageSearchResultData chest = searchForChest();
+        logInfo(chest.isFound()
+                ? "Online Rewards exposed the Storehouse chest after closing the building selection."
+                : "Storehouse chest was not visible after closing the Online Rewards selection.");
+        return chest;
     }
 
     /**
      * Processes the chest reward.
      * Searches for chest, claims it, and reads the next availability timer.
      */
-    private void processChestReward() {
+    private void processChestReward(ImageSearchResultData chest) {
         logInfo("Searching for Storehouse chest reward.");
-
-        ImageSearchResultData chest = searchForChest();
 
         if (chest.isFound()) {
             logInfo("Chest found. Claiming reward.");
@@ -232,9 +213,15 @@ public class StorehouseChestRoutine extends DelayedTask {
             return chest;
         }
 
-        // Try alternative chest template
-        return templateSearchHelper.locatePattern(
+        ImageSearchResultData alternativeChest = templateSearchHelper.locatePattern(
                 TemplatesEnum.STOREHOUSE_CHEST_2,
+                SearchConfigConstants.SINGLE_WITH_RETRIES);
+        if (alternativeChest.isFound()) {
+            return alternativeChest;
+        }
+
+        return templateSearchHelper.locatePattern(
+                TemplatesEnum.STOREHOUSE_CHEST_CURRENT,
                 SearchConfigConstants.SINGLE_WITH_RETRIES);
     }
 
@@ -299,91 +286,29 @@ public class StorehouseChestRoutine extends DelayedTask {
     }
 
     /**
-     * Processes the stamina reward.
-     * Searches for stamina icon (with retries), clicks it, waits for claim button, then claims.
+     * Opens and claims the stamina reward from the A Warm Welcome sidebar row.
      */
     private void processStaminaReward() {
-        logInfo("Searching for Storehouse stamina reward icon (with retries).");
+        logInfo("Opening Storehouse stamina reward through A Warm Welcome.");
 
-        ImageSearchResultData stamina = templateSearchHelper.locatePattern(
-                TemplatesEnum.STOREHOUSE_STAMINA,
+        if (!navigationHelper.navigateToSidebarDestination(SidebarDestination.WARM_WELCOME)) {
+            logWarning("A Warm Welcome sidebar destination was unavailable.");
+            nextStaminaTime = LocalDateTime.now().plusMinutes(FALLBACK_RESCHEDULE_MINUTES);
+            persistNextStaminaTime();
+            return;
+        }
+
+        ImageSearchResultData claim = templateSearchHelper.locatePattern(
+                TemplatesEnum.STOREHOUSE_WARM_WELCOME_CLAIM,
                 SearchConfigConstants.SINGLE_WITH_RETRIES);
-
-        if (stamina.isFound()) {
-            logInfo("Stamina icon found. Tapping to open popup.");
-            tapInside(stamina);
-            
-            // Changed by pernerch | Date: 2026-07-02 | Why: wait for claim button visibility confirmation (not blind wait) before proceeding with claim.
-            logDebug("Waiting for claim button to appear in popup...");
-            if (!waitForClaimButtonAppears(5000)) {
-                logWarning("Claim button did not appear within timeout. Popup may not have loaded properly.");
-                nextStaminaTime = LocalDateTime.now().plusMinutes(5);
-            } else {
-                logDebug("Claim button confirmed visible. Proceeding with claim.");
-                claimStaminaReward();
-                nextStaminaTime = GameTimeUtils.nextCycleReset();
-            }
-        } else {
-            logWarning("Stamina icon not found after retries. Will retry in 1 hour as fallback.");
-            nextStaminaTime = LocalDateTime.now().plusHours(1);
+        if (!claim.isFound()) {
+            logWarning("A Warm Welcome opened without a verified Claim control.");
+            nextStaminaTime = LocalDateTime.now().plusMinutes(FALLBACK_RESCHEDULE_MINUTES);
+            persistNextStaminaTime();
+            return;
         }
 
-        // Store the next claim time
-        writeProfileSetting(
-                ConfigurationKeyEnum.STOREHOUSE_STAMINA_CLAIM_TIME_STRING,
-                nextStaminaTime.toString());
-    }
-
-    /**
-     * Waits for the claim button to appear on screen after popup opens.
-     * Polls the claim button region to detect when popup is ready.
-     * Returns true if button appears/is confirmed, false if timeout.
-     */
-    private boolean waitForClaimButtonAppears(int timeoutMs) {
-        long startTime = System.currentTimeMillis();
-        int pollIntervalMs = 400;
-        
-        while (System.currentTimeMillis() - startTime < timeoutMs) {
-            try {
-                sleepTask(pollIntervalMs);
-                
-                // Try to detect if popup is active by checking for visual changes in claim button area
-                // If screen is responsive and no error, button region is likely ready
-                logDebug("Poll: checking claim button area visibility (elapsed " + 
-                    (System.currentTimeMillis() - startTime) + "ms)");
-                
-                // If we get here without exception, screen is responsive
-                return true;
-            } catch (Exception ex) {
-                logDebug("Poll iteration error: " + ex.getMessage());
-                continue;
-            }
-        }
-        
-        logWarning("Claim button visibility timeout after " + timeoutMs + "ms");
-        return false;
-    }
-
-    /**
-     * Claims the stamina reward and updates stamina service.
-     */
-    private void claimStaminaReward() {
-        // Changed by pernerch | Date: 2026-07-02 | Why: fix stamina claim by removing problematic overlay tap and ensuring screen stability before OCR.
-        // Let stamina details screen fully render
-        sleepTask(1000);
-
-        // Dismiss tutorial overlay (if present) by tapping on a safe neutral area, not on the stamina display itself
-        logDebug("Clearing tutorial overlays if present");
-        try {
-            // Tap center-left area to dismiss any hand tutorials without interfering with stamina display
-            tapInside(new PointData(200, 600), new PointData(250, 700), 1, 200);
-            sleepTask(300);
-        } catch (Exception e) {
-            logDebug("Overlay clear attempt failed or not needed: " + e.getMessage());
-        }
-
-        // Read Agnes bonus stamina amount
-        Integer agnesStamina = integerHelper.attemptRecognition(
+        Integer displayedStamina = integerHelper.attemptRecognition(
                 STAMINA_AMOUNT_TOP_LEFT,
                 STAMINA_AMOUNT_BOTTOM_RIGHT,
                 TIMER_OCR_MAX_ATTEMPTS,
@@ -392,24 +317,35 @@ public class StorehouseChestRoutine extends DelayedTask {
                 text -> RegexNumberParser.conformsTo(text, Pattern.compile(".*?(\\d+).*")),
                 text -> RegexNumberParser.extractByPattern(text, Pattern.compile(".*?(\\d+).*")));
 
-        logDebug("Agnes stamina OCR result: " + (agnesStamina != null ? agnesStamina : "null"));
+        int claimedStamina = displayedStamina != null && displayedStamina >= BASE_STOREHOUSE_STAMINA
+                ? displayedStamina
+                : BASE_STOREHOUSE_STAMINA;
+        logDebug("A Warm Welcome stamina OCR result: "
+                + (displayedStamina != null ? displayedStamina : "null; using base amount"));
 
-        // Claim button - ensure proper delay before clicking
-        sleepTask(500);
-        logDebug("Clicking stamina claim button at region " + STAMINA_CLAIM_BUTTON_TOP_LEFT + " - " + STAMINA_CLAIM_BUTTON_BOTTOM_RIGHT);
-        tapInside(STAMINA_CLAIM_BUTTON_TOP_LEFT, STAMINA_CLAIM_BUTTON_BOTTOM_RIGHT);
-        sleepTask(4000); // Wait for claim animation
+        tapInside(claim);
+        sleepTask(4_000);
 
-        // Update stamina service
-        StaminaService.getServices().addExternalStamina(profile.getId(), BASE_STOREHOUSE_STAMINA);
-
-        if (agnesStamina != null && agnesStamina > 0) {
-            StaminaService.getServices().addExternalStamina(profile.getId(), agnesStamina);
-            logInfo(String.format("Claimed %d base stamina + %d from Agnes bonus.",
-                    BASE_STOREHOUSE_STAMINA, agnesStamina));
-        } else {
-            logInfo("Claimed " + BASE_STOREHOUSE_STAMINA + " base stamina.");
+        ImageSearchResultData remainingClaim = templateSearchHelper.locatePattern(
+                TemplatesEnum.STOREHOUSE_WARM_WELCOME_CLAIM,
+                SearchConfigConstants.DEFAULT_SINGLE);
+        if (remainingClaim.isFound()) {
+            logWarning("A Warm Welcome Claim control remained visible after the tap.");
+            nextStaminaTime = LocalDateTime.now().plusMinutes(FALLBACK_RESCHEDULE_MINUTES);
+            persistNextStaminaTime();
+            return;
         }
+
+        StaminaService.getServices().addExternalStamina(profile.getId(), claimedStamina);
+        logInfo("Claimed " + claimedStamina + " stamina through A Warm Welcome.");
+        nextStaminaTime = GameTimeUtils.nextCycleReset();
+        persistNextStaminaTime();
+    }
+
+    private void persistNextStaminaTime() {
+        writeProfileSetting(
+                ConfigurationKeyEnum.STOREHOUSE_STAMINA_CLAIM_TIME_STRING,
+                nextStaminaTime.toString());
     }
 
     /**

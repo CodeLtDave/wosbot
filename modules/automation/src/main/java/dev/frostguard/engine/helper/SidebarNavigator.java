@@ -67,7 +67,7 @@ public final class SidebarNavigator {
             return false;
         }
 
-        AreaData actionArea = rowActionAreaFor(rowIcon);
+        AreaData actionArea = rowActionAreaFor(destination, rowIcon);
         ImageSearchResultData action = locateRowAction(destination, actionArea, actionFrame);
         if (action == null || !action.isFound()) {
             log.info("Sidebar row found without an expected action: " + destination
@@ -150,12 +150,21 @@ public final class SidebarNavigator {
     }
 
     static AreaData rowActionAreaFor(ImageSearchResultData rowIcon) {
+        return rowActionAreaFor(rowIcon, 0);
+    }
+
+    static AreaData rowActionAreaFor(SidebarDestination destination, ImageSearchResultData rowIcon) {
+        return rowActionAreaFor(rowIcon, destination.actionYOffset());
+    }
+
+    private static AreaData rowActionAreaFor(ImageSearchResultData rowIcon, int actionYOffset) {
         PointData center = rowIcon.getPoint();
         if (center == null) {
             throw new IllegalArgumentException("A located row icon is required");
         }
-        int top = Math.max(CommonGameAreas.SIDEBAR_CONTENT.topLeft().getY(), center.getY() - GO_HALF_HEIGHT);
-        int bottom = Math.min(CommonGameAreas.SIDEBAR_CONTENT.bottomRight().getY(), center.getY() + GO_HALF_HEIGHT);
+        int actionCenterY = center.getY() + actionYOffset;
+        int top = Math.max(CommonGameAreas.SIDEBAR_CONTENT.topLeft().getY(), actionCenterY - GO_HALF_HEIGHT);
+        int bottom = Math.min(CommonGameAreas.SIDEBAR_CONTENT.bottomRight().getY(), actionCenterY + GO_HALF_HEIGHT);
         return new AreaData(
                 new PointData(center.getX() + GO_LEFT_OFFSET, top),
                 new PointData(center.getX() + GO_RIGHT_OFFSET, bottom));
